@@ -1,0 +1,1 @@
+what is sandboxing : Is a security technique that is used to secure system from being affected by application vulnerabilities by creating a restricted and controlled  application's running environment and isolating and limiting the program from accessing the filesystem calls and other resources outside of the application running environment.
