@@ -47,3 +47,164 @@ As an alternative to PulseAudio, Pipwire addresses these problems by designing a
 
 
 
+
+
+Linux Sandbox Solutions
+Dedicated Sandbox Solutions: Firejail, Bubblewrap, and Minijail
+There is never a lack of arguments in the Open Source communities regarding the weaknesses of sandbox solutions in the GNU/Linux platform. In an article 2, Madaidans points out that the GNU/Linux operating system is short of an efficient sandboxing mechanism compared with other operating systems. The article mentions two GNU/Linux sandboxing mechanisms in terms of Flatpak and Firejail. However, Flatpak is not a dedicated sandboxing solution. It is far more than that. As defined, Flatpak is an application building, managing, and distributing tool on the GNU/Linux distributions platform 21, which employs the sandbox tool, namely Bubblewrap, to secure the applications that have been built and packaged 22. In the same article, the author brings the Bubblewrap up as a comparison to the Firejail and gives credit to its less attack surface design.
+
+As stated by the author, the problem with the bubblewrap is its learning curve, which means it is difficult to learn and deploy in practice because of its minimalized design. However, this problem can be addressed by developing the community rule set and wrapper programs on a higher layer. In contrast, the shortage of another sandboxing tool, Firejial, is severe. The main problem is it uses SUID to start the sandboxed applications, which leaves the risk of privilege escalation.
+
+Despite the issue, in practice, Firejail still provides a relatively high level of protection to the system by mitigating malicious behavior from the application inside the box, especially when most of the threats derive from the application installed according to one’s threat model. Firejail covers most sandbox interfaces using various mechanisms, including Seccomp-bpf, Linux namespaces, Linux capabilities, cgroup, D-bus filtering, etc. Its user-friendly command-line interface and configuration options make Firejial easier to accept by policy developers and normal users, thereby increasing the overall security of the running environment.
+
+Minijail is another dedicated open-source sandbox developed by Google for applications running on ChromeOS and Android 23. Like Firejial, it provides a confinement environment utilizing Seccomp and Linux namespace. Still, it has the same issue with Firejail, which requires root privilege to launch the application. Additionally, as the purpose of its development, Minijail is only officially available for ChromOS and Android as it depends on libchrome 24. Although it is possible to build the binary from the code on other GNU/Linux systems 25, there is no official package available on most desktop GNU/Linux distributions till now.
+
+In general, the problems with these sandbox soluitions described above have already been noticed by the community developers and discussed broadly. Many community projects have been started in trying to resolve these issues on Bubblwrap and Firejail. For instance, the Bubblejail sandbox based on Bubblewrap 26 is an attempt to be there as an alternative to Firejail. Meanwhile, the Firejail community is talking about the unprivileged sandboxing without SUID and the splitting of the SUID part of functions into a separate binary 27.
+
+Sandbox Enabled by Package Management
+Some package management systems introduced their built-in sandbox solutions based on existing techniques for privilege confinement. Snap 28, managed by Canonical and used on Ubuntu, implements the sandboxing using AppArmor 29 and Seccomp, whereas the cross-platform package management application Flatpak 30 involves Bubblewrap 31 as mentioned before. AppImage does not have a built-in mechanism, but the sandbox can be created using Firejail with the --appimage option.
+
+By implementing the sandbox solution in package management, the complex works of making policies are transfered from the application users to the package maintainers who have better knowledge and understanding of the application. It helps to create more reasonable policies, and more essentially, these policies can be updated along with the application.
+
+The integrated sandbox solution also reduces the deployment cost and increases the coverage of sandboxed applications because they are usually enabled by default.
+
+In addition, in contrast to the conventional packaging systems such as APT and RPM, often this new kind of system has the mechanism to put the dependencies, usually, the shared libraries used by the application, into the packages 32 33, thereby leaving less interface of library calling to the outside of the package. This feature is helpful in creating the sandbox virtual environment.
+
+Despite that, the problem within the package management system is worth being concerned about. A study from Dunlap et al. in 2022 34 discovered that package maintainers tend to follow the least-privilege principle on policymaking and the security from the system level is improved, but only 58.3% of Flatpak applications and 90.1% of Snap applications defined proper sandbox policies. In other words, only a part of the applications had been covered under the protection of their sandbox mechanisms. Indeed, users could override existing policies with their own ones by means of, for instance, adding execution options for improperly protected or unprotected Flatpak applications or using tools such as Flatseal 35, it is still time-consuming and the requirement here is to deliver the security by default.
+
+Another weakness often argued by the communities on these all-in-on package solutions is that the dependencies included may not be patched in time as soon as the vulnerabilities have been discovered. Thus, they give a “false sense of security”. Nevertheless, as Dunlap et al. points out 34, this is an issue with the maintainer but not the design of the packaging system.
+
+The candidate solution to these issues is to standardize the packaging process in the community. It is important to ensure every package has reasonable policies defined in the process. Also, even if a CVE is found in only one of these dependencies, that package must be rebuilt and published as fast as possible, just as the ordinary GNU/Linux packaging systems do. Meanwhile, the communities may introduce an automatic notification mechanism to inform the package maintainers when vulnerabilities in dependencies have been reported, according to their severity.
+
+MAC Tools
+MAC (Mandatory Access Control) tools based on LSM, such as SELinux and AppArmor, can also be used for the purpose of application confinement. However, they mainly focus on restricting the file and object accessed by the application processes, thus not the overall sandbox solutions. For example, they do not provide a virtual environment or containerized environment.
+
+In addition, it is difficult for normal users or package maintainers to develop security policies or to customize the privileges exposed to the confined applications, particularly obvious for the SELinux policy development in contrast to the AppArmor, where many specific concepts such as SELinux users, roles, and types, are involved. This issue is obvious in the GUI applications, which are more complicated and probably involve more system resources. Most GNU/Linux distributions with MAC tools enabled only have policies that cover limited applications.
+
+Despite that, MAC tools can work with other existing security features like Seccomp and Capabilities to make an additional hardening layer. For instance, Firejail has an option to run itself with AppArmor confinement enabled 36.
+
+The policy development issue can be addressed by involving experts who are familiar with both the MAC policies and the application privileges. It cost time and efforts, but the investment could benefit all the downstream distribution communities, just like what firejail community has done on developing applicaiton profiles.
+
+Landlock
+There are also other sandboxing solutions, mostly in the experiment phase, on GNU/Linux platform which are not covered in Madaidan’s article. Landlock 37 is one of them.
+
+Implemented in the kernel space, Landlock is designed as an unprivileged access control mechanism in the LSM for the purpose of creating the sandbox during application development. Since it is part of the LSM, it can be a stackable layer upon other existing Linux security mechanisms in LSM 38 such as SELinux, Apparmor, and other MAC tools. With the help of new system calls, namely landlock_create_ruleset(), landlock_add_rule(), and landlock_restrict_self(), Landlock creates embedded policy for an application in its code, thereby reducing the tedious and error-prone work of policy development on the downstream developers package and maintainer. Also, thanks for the system call interfaces, Landlock works in an unprivileged way where the risk of privilege escalation is further reduced.
+
+The embedded policy moves the policy-making tasks from the sandbox solution developers and users to the upstream application developers. The Landlock project only provides the sandboxing mechanisms, namely Landlock system calls. Also, users or package maintainers do not need to care about policy configuration 38. The absence of userspace configuration tools simplifies the work for downstream distributions to a great extent. Only the enabling of kernel options CONFIG_SECURITY_LANDLOCK=y and CONFIG_LSM=landlock,... is required. So far, these kernel options have already been the default options on many major Linux distributions, such as Ubuntu, Fedora, openSUSE Tumbleweed, Gentoo, and Arch Linux 39 40.
+
+However, the built-in policy increases the workload of the upstream application developers. They have to define the policy and maintain this part of the code continuously. Not all application developers are willing to do these additional works. It is a blocker for promoting sandbox solutions in general. Up to now, most Linux applications do not have dedicated landlock implementations. The developer of the Landlock project tried to push the patch of the tar command with the sandbox implementation to its GNU Project but so far has not received any responses 41.
+
+To address this issue, the third-party sandbox solutions could implement the landlock in their code so the ruleset takes effect on the sandboxed applications, just as Firejail does 42. In this way, the ruleset becomes configurable for users and profile developers.
+
+Virtualization and Containerization
+Another common practice is employing Virtualization or Containerization techniques as a sandbox solution in the Linux environment. Virtualization and containerization provide a virtualized environment where the sandboxed application runs. Since everything is in the environment, the interfaces like system calls and file systems are self-contained in the images. Therefore, the configuration of these interfaces is not required. Virtualization solutions such as KVM and XEN include the entire Linux kernel in a completely isolated runtime environment. In contrast, containerization solution like Docker, Linux Containers (LXC), and Podman create their separate root structure and resources with the help of the Linux namespace and organize the processes using Control Group (cgroup) to create an isolated environment 43.
+
+Nevertheless, both virtualization and containerization have not been designed as sandbox solutions from the very beginning. It is difficult for users to run applications in those environments without tedious configurations. Users must take care of file sharing between the host and guest system when files need to be created or read on the host system. Moreover, the entire system installed in the virtual environment must be updated regularly. It increases the overall time cost of the sandbox maintenance. Performance is another non-ignorable consideration. Even with the help of CPU Virtualization features, the consumption of host’s CPU Power, memory, and disk space still takes up a significant portion of the system resource compared to other sandbox solutions.
+
+More importantly, using virtualization and containerization as sandbox solutions also has security weaknesses. Regarding virtualization, virtual machine escape attack is always a risk. In terms of containerization, it provides only limited protection to the application. Usually, the kernel space processing is shared with the host system and other containers. More seriously, container solutions like Docker require root privilege to start the daemon, which further increases the attack interface.
+
+Some attempts have been made by the communities to address the above issues. For example, QubeOS based on Xen virtualization supports running various Linux applications in separate virtual machine environments 44, which reduces the complexity of creating the virtualization sandboxes. Moreover, as a virtual machine monitor (VMM) that targets serverless computing, Firecracker builds and manages KVM-based microVMs with a lightweight and minimalist design to limit the attack surface 45. Also, the openSUSE MicroOS project keeps a similar idea in its design but mainly targets container deployment in the minimized VM environment 46. These projects can be potential candidates for the VM-type sandboxing solution due to their ability to reduce the consumption of the system resources. Finally, the container consumes much fewer system resources than the virtual machine sandbox solution. Compared to Docker, Podman is more suitable as a sandbox due to its rootless and daemonless features 47.
+
+Conclusion
+So far, this article gives a general overview of the sandbox solutions on the GNU/Linux platform and discusses the weaknesses and community efforts to address these weaknesses. In a word, despite the various weaknesses of these sandbox solutions, GNU/Linux provides more choices in contrast to the proprietary operating systems. Moreover, these solutions can be combined or stacked to achieve a higher level of protection.
+
+No matter what operating systems they are, there is no such thing as a “true sandbox” solution. Depending on the complexity of the application protected, it always has some resources and interfaces exposed to the host system or other applications to a certain extent, such as system calls, file systems, and devices. Otherwise, the application does not function properly. These exposed interfaces may introduce exploitable vulnerabilities and then weaken the entire protection mechanism. Again, it is not only a “Linux thing”. To evaluate the protection level of sandbox solution on a specific operating system platform, not only the general design needs to be examined, but also the implementation in detail. Therefore, code-level auditing conducted by multiple parties may be necessary, which is hard to implement on proprietary platforms.
+
+　
+
+References
+I. Borate and R. K. Chavan, “Sandboxing in linux: From smartphone to cloud.” International Journal of Computer Applications, vol.148, no.8, August 2016, doi:10.5120/ijca2016911256. [Online]. Available: https://www.ijcaonline.org/archives/volume148/number8/25774-2016911256 ↩︎
+
+Madaidan. “Security & Privacy Evaluations,” Madaidan’s Insecurities, March 18, 2022. Accessed: August 10, 2024. [Online]. Available: https://madaidans-insecurities.github.io/linux.html ↩︎ ↩︎
+
+S. Designer. “Re: major changes if gnu/linux dominates the desktop and/or mobile market?,” Openwall, October t, 2020. Accessed: August 10, 2024. [Online]. Available: https://www.openwall.com/lists/oss-security/2020/10/05/5 ↩︎
+
+Systemd. “machine-id(5) — Linux manual page,” man7.org. Accessed: August 11, 2024. [Online]. Available: https://man7.org/linux/man-pages/man5/machine-id.5.html ↩︎
+
+The Linux Kernel Organization. “syscalls(2) — Linux manual page,” man7.org, May 2, 2024. Accessed: August 11, 2024. [Online]. Available: https://man7.org/linux/man-pages/man2/syscalls.2.html ↩︎
+
+The Linux Kernel Organization. “cgroups(7) — Linux manual page,” man7.org, June 15, 2024. Accessed: August 11, 2024. [Online]. Available: https://man7.org/linux/man-pages/man7/cgroups.7.html ↩︎
+
+The Linux Kernel Organization. “ipc_namespaces(7) — Linux manual page,” man7.org, May 2, 2024. Accessed: August 11, 2024. [Online]. Available: https://man7.org/linux/man-pages/man7/ipc_namespaces.7.html ↩︎
+
+The Linux Kernel Organization. “pid_namespaces(7) — Linux manual page,” man7.org, June 13, 2024. Accessed: August 11, 2024. [Online]. Available: https://man7.org/linux/man-pages/man7/pid_namespaces.7.html ↩︎
+
+“dbus,” freedesktop.org, February 28, 2022. Accessed: August 15, 2024. [Online]. Available: https://www.freedesktop.org/wiki/Software/dbus/ ↩︎
+
+“DbusProjects,” freedesktop.org, May 18, 2013. Accessed: August 15, 2024. [Online]. Available: https://www.freedesktop.org/wiki/Software/DbusProjects/ ↩︎
+
+“dbus-daemon — Message bus daemon,” freedesktop.org, August 21, 2023. Accessed: August 15, 2024. [Online]. Available: https://dbus.freedesktop.org/doc/dbus-daemon.1.html ↩︎
+
+Firejail. “Frequently Asked Questions,” GitHub wiki. Accessed: August 15, 2024. [Online]. Available: https://github.com/netblue30/firejail/wiki/Frequently-Asked-Questions#how-do-i-sandbox-applications-started-via-systemd-or-d-bus-services ↩︎
+
+K. Høgsberg. “Wayland - The Wayland Protocol,” freedesktop.org. Accessed: August 10, 2024. [Online]. Available: https://wayland.freedesktop.org/docs/html/ ↩︎
+
+Debian. “Wayland,” debian.org, May 1, 2024. Accessed: August 12, 2024. [Online]. Available: https://wiki.debian.org/Wayland ↩︎
+
+The GNOME Project. “Wayland,” gnome.org, May 12, 2017. Accessed: August 14, 2024. [Online]. Available: https://wiki.gnome.org/Initiatives/Wayland ↩︎
+
+“KWin/Wayland,” KDE Community Wiki, February 4, 2022. Accessed: August 14, 2024. [Online]. Available: https://community.kde.org/KWin/Wayland ↩︎
+
+“Xfce Wayland Development Roadmap”, Xfce Developer Wiki, March 18, 2024. Accessed: August 14, 2024. [Online]. Available: https://wiki.xfce.org/releng/wayland_roadmap ↩︎
+
+“Access Control – Development Documentation – PulseAudio,” freedesktop.org, May 7, 2021. Accessed: August 14, 2024. [Online]. Available: https://www.freedesktop.org/wiki/Software/PulseAudio/Documentation/Developer/AccessControl/ ↩︎
+
+“PipeWire: Access Control,” Pipewire Document. Accessed: August 14, 2024. [Online]. Available: https://docs.pipewire.org/page_access.html ↩︎
+
+“Pipewire,” Pipewire, 2022. Accessed: August 14, 2024. [Online]. Available: https://pipewire.org ↩︎
+
+Flatpak Team. “Introduction to Flatpak,” Flatpak documentation, June 30, 2024. Accessed: August 16, 2024. [Online]. Available: https://docs.flatpak.org/en/latest/introduction.html#terminology ↩︎
+
+Flatpak Team. “Under the Hood,” Flatpak documentation, July 24, 2024. Accessed: August 16, 2024. [Online]. Available: https://docs.flatpak.org/en/latest/under-the-hood.html ↩︎
+
+Google. “./ minijail,” Github page. Accessed: August 16, 2024. [Online]. Available: https://google.github.io/minijail/ ↩︎
+
+“Minijail,” Google Git Repositories on Chromium, March 22, 2024. Accessed: August 16, 2024. [Online]. Available: https://chromium.googlesource.com/chromiumos/platform/minijail#historical-notes ↩︎
+
+“Hacking on Minijail,” Google Git repository on Chromium, August 30, 2022. Accessed: August 17, 2024. [Online]. Available: https://chromium.googlesource.com/chromiumos/platform/minijail/+/refs/heads/main/HACKING.md ↩︎
+
+“Bubblejail,” Github repository, May 26, 2024. Accessed: August 9, 2024. [Online]. Available: https://github.com/igo95862/bubblejail/> ↩︎
+
+“unprivileged firejail,” Github issues, January 19, 2024. Accessed: August 9, 2024. [Online]. Available: https://github.com/netblue30/firejail/issues/5157 ↩︎
+
+Canonical Ubuntu. “Introduction to snaps,” ubuntu.com, March 22, 2022. Accessed: August 10, 2024. [Online]. Available: https://ubuntu.com/core/services/guide/snaps-intro ↩︎
+
+Canonical Ubuntu. “Security and sandboxing,” ubuntu.com, February 9, 2023. Accessed: August 10, 2024. [Online]. Available: https://ubuntu.com/core/docs/security-and-sandboxing ↩︎
+
+“Flatpak,” Flatpak. Accessed: August 10, 2024. [Online]. Available: https://flatpak.org ↩︎
+
+Flatpak Team. “Under the Hood - Flatpak documentation,” flatpak.org, July 24, 2024. Accessed: August 12, 2024. [Online]. Available: https://docs.flatpak.org/en/latest/under-the-hood.html#underlying-technologies ↩︎
+
+“Adding parts - Snapcraft documentation,” Canonical Snapcraft, August 11, 2023. Accessed: August 12, 2024. [Online]. Available: https://snapcraft.io/docs/adding-parts ↩︎
+
+Flatpak Team. “Dependencies - Flatpak documentation,” flatpak.org, July 22, 2024. Accessed: August 12, 2024. [Online]. Available: https://docs.flatpak.org/en/latest/dependencies.html#bundling ↩︎
+
+T. Dunlap, W. Enck, and B. Reaves, “A Study of Application Sandbox Policies in Linux,” in SACMAT ‘22: Proceedings of the 27th ACM on Symposium on Access Control Models and Technologies, 2022, pp. 19-30, doi: 10.1145/3532105.3535016. [Online]. Available: https://dl.acm.org/doi/10.1145/3532105.3535016 ↩︎ ↩︎
+
+M. A. Lahaye. Flatseal. (2.2.0). Flathub. Accessed: August 18, 2024. [Online]. Available: https://flathub.org/apps/com.github.tchx84.Flatseal ↩︎
+
+“Firejail - Linux namespaces sandbox program,” Github repository, July 31, 2024. Accessed: August 13, 2024. [Online]. Available: https://github.com/netblue30/firejail/blob/master/src/man/firejail.1.in ↩︎
+
+“Landlock: unprivileged access control,” landlock.io. Accessed: August 19, 2024. [Online]. Available: https://landlock.io/ ↩︎
+
+M. Salaün. “Landlock: From a security mechanism idea to a widely available implementation,” landlock.io. Accessed: August 19, 2024. [Online]. Available: https://landlock.io/talks/2024-06-06_landlock-article.pdf ↩︎ ↩︎
+
+M. Salaün, Conference Presentation, Topic: “Backward and forward compatibility for security features (illustrated with Landlock),” FOSDEM, February 4, 2023. Accessed: August 13, 2024. [Online]. Available: https://landlock.io/talks/2023-02-04_rust-landlock-fosdem.pdf ↩︎
+
+“kernel-source/config/x86_64/default,” Github repository. Accessed: August 16, 2024. [Online]. Available: https://github.com/openSUSE/kernel-source/blob/master/config/x86_64/default ↩︎
+
+M. Salaün. “[PATCH v1 0/1] Landlock Support,” GNU Mailinglist, April 7, 2021. Accessed: August 13, 2024. [Online]. Available: https://lists.gnu.org/archive/html/bug-tar/2021-04/msg00001.html ↩︎
+
+“README - Landlock support,” Github repository, July 13, 2024. Accessed: August 17, 2024. [Online]. Available: https://github.com/netblue30/firejail?tab=readme-ov-file#landlock-support ↩︎
+
+M. Reeves, D. J. Tian, A. Bianchi and Z. B. Celik, “Towards Improving Container Security by Preventing Runtime Escapes,” 2021 IEEE Secure Development Conference (SecDev), Atlanta, GA, USA, 2021, pp. 38-46, doi: 10.1109/SecDev51306.2021.00022. ↩︎
+
+“Templates - Qubes OS,” Qubes OS. Accessed: August 16, 2024. [Online]. Available: https://www.qubes-os.org/doc/templates/ ↩︎
+
+“Firecracker - Secure and fast microVMs for serverless computing,” Firecracker. Accessed: August 23, 2024. [Online]. Available: https://firecracker-microvm.github.io/ ↩︎
+
+“Portal:MicroOS,” openSUSE Wiki, June 15, 2022. Accessed: August 23, 2024. [Online]. Available: https://en.opensuse.org/Portal:MicroOS ↩︎
+
+“What is Podman?,” Red Hat, June 20, 2024. Accessed: August 16, 2024. [Online]. Available: https://www.redhat.com/en/topics/containers/what-is-podman ↩︎
+
+Posted by HardenedLinux Aug 20, 2024  Tags: sandbox firejail bubblewrap flatpak seccomp
